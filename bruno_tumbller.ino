@@ -1,5 +1,4 @@
-#include <Adafruit_MPU6050.h>
-
+#include "angle_sensor.h"
 #include "motor.h"
 #include "pid.h"
 #include "pins.h"
@@ -7,6 +6,7 @@
 
 #define TIME_STEP (5)
 
+#define FILTER_ALPHA (0.85f)
 #define OUTPUT_SCALING (2.76f)
 #define KP (900.f * OUTPUT_SCALING)
 #define KI (50.f * OUTPUT_SCALING)
@@ -21,54 +21,33 @@ const float timeStep = ((float)TIME_STEP / 1000.f);
 const float maxAngle = 0.70f;
 //const float setPointFixRate = 0.5f;
 
-Adafruit_MPU6050 mpu;
+Adafruit_MPU6050 imu;
+AngleSensor angleSensor(&imu, FILTER_ALPHA);
 Motor motor(AIN1, PWMA_LEFT, BIN1, PWMB_RIGHT, STBY_PIN);
 Pid pid(550, 200, 10);
 PIDController pid_phil(KP, KI, KD,
                        0.f, (-255.f), 255.f,
                        0.f, 0.f, timeStep);
 
-static float angleFromAcc(float x, float y, float z)
-{
-  return atan(y / sqrt( (x * x) + (z * z)));
-}
-
 void setup() {
-  // put your setup code here, to run once:
   pinMode(LED_BUILTIN, OUTPUT);
   Serial.begin(9600);
-  //Serial.println("Starting MPU6050 test!");
 
-  if (!mpu.begin()) {
-    //Serial.println("Failed to find MPU6050 chip");
+  if (!angleSensor.Start()) {
+    Serial.println("Failed to find MPU6050 chip");
     while (1) {
       delay(10);
     }
   }
 
-  //Serial.println("Init success!");
-
-  mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
-  mpu.setGyroRange(MPU6050_RANGE_500_DEG);
-  mpu.setFilterBandwidth(MPU6050_BAND_184_HZ);
-
-  sensors_event_t a, g, temp;
-  mpu.getEvent(&a, &g, &temp);
-  gyroAngle = angleFromAcc(a.acceleration.x, a.acceleration.y, a.acceleration.z);
-  filteredAngle = gyroAngle;
   motor.stop();
+  filteredAngle = angleSensor.UpdateAngle(timeStep);
   delay(2000);
 }
 
 void loop() {
   
-  sensors_event_t a, g, temp;
-  mpu.getEvent(&a, &g, &temp);
-
-  float accAngle = angleFromAcc(a.acceleration.x, a.acceleration.y, a.acceleration.z);
-  float gyroDelta = g.gyro.x * timeStep;
-  gyroAngle += gyroDelta;
-  filteredAngle = 0.9 * (filteredAngle + gyroDelta) + 0.1 * accAngle;
+  filteredAngle = angleSensor.UpdateAngle(timeStep);
 
   if( (filteredAngle > maxAngle) || (filteredAngle < -maxAngle) )
   {
@@ -87,11 +66,11 @@ void loop() {
 
   if(pidOutput > 0)
   {
-    motor.backward(command);
+    //motor.backward(command);
   }
   else
   {
-    motor.forward(command);
+    //motor.forward(command);
   }
 
   Serial.print("Command:");
