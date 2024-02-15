@@ -5,11 +5,10 @@ class Pid {
     float kp;
     float kd;
     float ki;
-    float setPoint;
 
   public:
-    Pid(float, float, float, float);
-    float computePid(float, float);
+    Pid(float, float, float);
+    float computePid(float, float, float);
     float getError(void);
 
   private:
@@ -17,21 +16,21 @@ class Pid {
     float previousError;
 };
 
-Pid::Pid(float p, float i, float d, float target)
+Pid::Pid(float p, float i, float d)
 {
     kp = p;
     ki = i;
     kd = d;
-    setPoint = target;
     integral = 0;
+    previousError = 0;
 }
 
-float Pid::computePid(float input, float timeDelta)
+float Pid::computePid(float input, float setPoint, float timeDelta)
 {
     float error = setPoint - input;
     float derivative = (error - previousError) / timeDelta;
-    previousError = error;
     integral += error * timeDelta;
+    previousError = error;
 
     return (kp * error) + (ki * integral) + (kd * derivative);
 }
