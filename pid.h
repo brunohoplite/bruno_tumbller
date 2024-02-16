@@ -32,7 +32,17 @@ float Pid::computePid(float input, float setPoint, float timeDelta)
     integral += error * timeDelta;
     previousError = error;
 
-    return (kp * error) + (ki * integral) + (kd * derivative);
+    float out = (kp * error) + (ki * integral) + (kd * derivative);
+    if (out > 255.f)
+    {
+      out = 255;
+    }
+    else if (out < -255.f)
+    {
+      out = -255.f;
+    }
+
+    return out;
 }
 
 float Pid::getError(void)

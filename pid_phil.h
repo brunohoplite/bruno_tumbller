@@ -21,9 +21,6 @@ private:
 	float limMinInt;
 	float limMaxInt;
 
-	/* Sample time (in seconds) */
-	float T;
-
 	/* Controller "memory" */
 	float integrator;
 	float prevError;			/* Required for integrator */
@@ -31,8 +28,8 @@ private:
 	float prevMeasurement;		/* Required for differentiator */
 
 public:
-    PIDController(float, float, float, float, float, float, float, float, float);
-    float Update(float setpoint, float measurement);
+    PIDController(float, float, float, float, float, float, float, float);
+    float Update(float setpoint, float measurement, float timeStep);
 };
 
 #endif // PID_PHIL_H

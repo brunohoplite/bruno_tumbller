@@ -5,7 +5,7 @@
 
 PIDController::PIDController(float p, float i, float d,
                              float set_tau, float set_limMin, float set_limMax,
-                             float set_limMinInt, float set_limMaxInt, float set_T)
+                             float set_limMinInt, float set_limMaxInt)
 {
     Kp = p;
     Ki = i;
@@ -15,14 +15,13 @@ PIDController::PIDController(float p, float i, float d,
     limMax = set_limMax;
     limMinInt = set_limMinInt;
     limMaxInt = set_limMaxInt;
-    T = set_T;
     integrator = 0.f;
     prevError = 0.f;
     differentiator = 0.f;
     prevMeasurement = 0.f;
 }
 
-float PIDController::Update(float setpoint, float measurement)
+float PIDController::Update(float setpoint, float measurement, float timeStep)
 {
     /*
 	* Error signal
@@ -39,10 +38,10 @@ float PIDController::Update(float setpoint, float measurement)
     /*
     * Integral
     */
-    this->integrator = this->integrator + 0.5f * this->Ki * this->T * (error + this->prevError);
+    this->integrator = this->integrator + 0.5f * this->Ki * timeStep * (error + this->prevError);
 
     /* Anti-wind-up via integrator clamping */
-#if ANTI_WINDUP
+#if 1
     if (this->integrator > this->limMaxInt) {
 
         this->integrator = this->limMaxInt;
@@ -57,10 +56,14 @@ float PIDController::Update(float setpoint, float measurement)
     /*
     * Derivative (band-limited differentiator)
     */
-		
-    this->differentiator = -(2.0f * this->Kd * (measurement - this->prevMeasurement));   /* Note: derivative on measurement, therefore minus sign in front of equation! */
-                        //    + (2.0f * this->tau - this->T) * this->differentiator)
-                        //    / (2.0f * this->tau + this->T);
+#if 0		
+    this->differentiator = -(2.0f * this->Kd * (measurement - this->prevMeasurement)   /* Note: derivative on measurement, therefore minus sign in front of equation! */
+                            + (2.0f * this->tau - timeStep) * this->differentiator)
+                            / (2.0f * this->tau + timeStep);
+#else
+    float prevDiff = this->differentiator;
+    this->differentiator = ((2 * this->Kd * (error - this->prevError)) / timeStep) - prevDiff;
+#endif
 
 
     /*
