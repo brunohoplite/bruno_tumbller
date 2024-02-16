@@ -7,9 +7,9 @@
 
 #define FILTER_ALPHA (0.80f)
 #define OUTPUT_SCALING (2.76f)
-#define KP (700.f * OUTPUT_SCALING)
-#define KI (250.f * OUTPUT_SCALING)
-#define KD (0.1f * OUTPUT_SCALING)
+#define KP (300.f * OUTPUT_SCALING)
+#define KI (0.f * OUTPUT_SCALING)
+#define KD (0.f * OUTPUT_SCALING)
 
 #define RAD_TO_DEG_COEFF (57.3f)
 
@@ -59,18 +59,19 @@ void loop() {
   }
 
   // float pidOutput = pid_phil.Update(0.f, kalmanAngle, timeStep);
-  float pidOutput = oldPid.computePid(kalmanAngle, -0.005f, timeStep);
+  float pidOutput = oldPid.computePid(kalmanAngle, -0.0f, timeStep);
   float command = abs(pidOutput);
+  int scaledCommand = map((int)command, 0, 255, 25, 255);
 
   lastTime = now;
 
   if(pidOutput > 0)
   {
-    motor.backward(command);
+    motor.backward(scaledCommand);
   }
   else
   {
-    motor.forward(command);
+    motor.forward(scaledCommand);
   }
 
 #if 0
