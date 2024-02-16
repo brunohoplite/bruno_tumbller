@@ -6,6 +6,9 @@ static float angleFromAcc(float x, float y, float z);
 AngleSensor::AngleSensor(Adafruit_MPU6050* imu, const float alpha)
 {
     _alpha = alpha;
+    _filteredAngle = 0;
+    _accAngle = 0;
+    _gyroAngle = 0;
 
     if (imu != nullptr)
     {
@@ -35,10 +38,21 @@ float AngleSensor::UpdateAngle(const float timeStep)
     _imu->getEvent(&a, &g, &temp);
     float accAngle = angleFromAcc(a.acceleration.x, a.acceleration.y, a.acceleration.z);
     float gyroDelta = g.gyro.x * timeStep;
-    gyroAngle += gyroDelta;
-    filteredAngle = _alpha * (filteredAngle + gyroDelta) + ((1 - _alpha) * accAngle);
+    _gyroAngle += gyroDelta;
+    _accAngle = accAngle;
+    _filteredAngle = _alpha * (_filteredAngle + gyroDelta) + ((1 - _alpha) * accAngle);
 
-    return filteredAngle;
+    return _filteredAngle;
+}
+
+float AngleSensor::getGyroAngle(void)
+{
+    return _gyroAngle;
+}
+
+float AngleSensor::getAccAngle(void)
+{
+    return _accAngle;
 }
 
 static float angleFromAcc(float x, float y, float z)
