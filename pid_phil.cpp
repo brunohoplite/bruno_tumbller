@@ -62,7 +62,7 @@ float PIDController::Update(float setpoint, float measurement, float timeStep)
                             / (2.0f * this->tau + timeStep);
 #else
     float prevDiff = this->differentiator;
-    this->differentiator = ((2 * this->Kd * (error - this->prevError)) / timeStep) - prevDiff;
+    this->differentiator = ((2 * this->Kd * (measurement - this->prevMeasurement)) / timeStep) - prevDiff;
 #endif
 
 

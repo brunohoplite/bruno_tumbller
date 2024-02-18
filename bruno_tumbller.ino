@@ -4,19 +4,19 @@
 #include "pins.h"
 #include "pid_phil.h"
 #include "kalman.h"
+#include "speed_controller.h"
 
-#define FILTER_ALPHA (0.80f)
-#define OUTPUT_SCALING (2.76f)
-#define KP (300.f * OUTPUT_SCALING)
-#define KI (0.f * OUTPUT_SCALING)
-#define KD (0.f * OUTPUT_SCALING)
+#define FILTER_ALPHA (0.9f)
+#define KP (55.f)
+#define KI (0.f)
+#define KD (0.5f)
 
 #define RAD_TO_DEG_COEFF (57.3f)
 
 
 unsigned speed = 0;
 const float setPoint = 0; // in rad
-const float maxAngle = 0.80f;
+const float maxAngle = 45.f;
 
 Adafruit_MPU6050 imu;
 AngleSensor angleSensor(&imu, FILTER_ALPHA);
@@ -26,6 +26,7 @@ PIDController pid_phil(KP, KI, KD,
                        0.f, (-255.f), 255.f,
                        -100.f, 100.f);
 Pid oldPid(KP, KI, KD);
+SpeedController speedController;
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
@@ -37,52 +38,72 @@ void setup() {
   }
 
   motor.stop();
+  speedController.start();
   float InitialAngle = angleSensor.getAccAngle() * RAD_TO_DEG_COEFF;
   kalmanFilter.setAngle(InitialAngle);
   delay(1000);
 }
-
+#define SPEED_DELAY (10U)
 void loop() {
   
   static unsigned long lastTime = micros();
-  unsigned long now = micros();
-  float timeStep = (float)(now - lastTime) / 1000000.f;
-  float filteredAngle = angleSensor.UpdateAngle(timeStep);
-  float accAngle = angleSensor.getAccAngle() * RAD_TO_DEG_COEFF;
-  float gyroRate = (angleSensor.getGyro() * RAD_TO_DEG_COEFF) - 1;
-  float kalmanAngle = kalmanFilter.getAngle(accAngle, gyroRate, timeStep) / RAD_TO_DEG_COEFF;
+  static unsigned speedDelay = 0;
+  static float speedOutput = 0;
 
-  if( (filteredAngle > maxAngle) || (filteredAngle < -maxAngle) )
+  unsigned long now = micros();
+  unsigned long diff = now - lastTime;
+  lastTime = now;
+  float timeStep = (float)(diff) / 1000000.f;
+  float filteredAngle = angleSensor.UpdateAngle(timeStep) * RAD_TO_DEG_COEFF;
+  float accAngle = angleSensor.getAccAngle() * RAD_TO_DEG_COEFF;
+  float gyroRate = (angleSensor.getGyro() * RAD_TO_DEG_COEFF);
+  float kalmanAngle = kalmanFilter.getAngle(accAngle, gyroRate, timeStep);
+
+  if( (kalmanAngle > maxAngle) || (kalmanAngle < -maxAngle) )
   {
     motor.stop();
     while(1) { };
   }
 
-  // float pidOutput = pid_phil.Update(0.f, kalmanAngle, timeStep);
-  float pidOutput = oldPid.computePid(kalmanAngle, -0.0f, timeStep);
-  float command = abs(pidOutput);
-  int scaledCommand = map((int)command, 0, 255, 25, 255);
-
-  lastTime = now;
-
-  if(pidOutput > 0)
+  speedDelay++;
+  if (speedDelay >= SPEED_DELAY)
   {
-    motor.backward(scaledCommand);
-  }
-  else
-  {
-    motor.forward(scaledCommand);
+    speedDelay = 0;
+    speedOutput = speedController.updateControl();
   }
 
 #if 0
+  float pidOutput = pid_phil.Update(0.f, kalmanAngle, timeStep);
+#else
+  float pidOutput = oldPid.computePid(kalmanAngle, -0.75f, timeStep);
+#endif
+  float totalOutput = pidOutput - speedOutput;
+  float command = abs(pidOutput);
+
+
+#if 1
+  if(pidOutput > 0)
+  {
+    motor.backward(command);
+  }
+  else
+  {
+    motor.forward(command);
+  }
+#else
+  static float gyroAngle = 0;
+  gyroAngle += (gyroRate * timeStep);
+  Serial.print("Time Step:");
+  Serial.print(timeStep);
+  Serial.print(",");
   Serial.print("Kalman:");
   Serial.print(kalmanAngle);
   Serial.print(",");
   Serial.print("Acc:");
-  Serial.print(angleSensor.getAccAngle());
+  Serial.print(accAngle);
   Serial.print(",");
   Serial.print("Gyro:");
-  Serial.print((angleSensor.getGyro() * timeStep));
+  Serial.print(gyroAngle);
   Serial.print(",");
   Serial.print("Filtered:");
   Serial.println(filteredAngle);
